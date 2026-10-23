@@ -3,12 +3,14 @@
   const form = document.getElementById('device-form');
   const serialInput = document.getElementById('serial-numbers');
   const tokenInput = document.getElementById('connector-token');
+  const modeInput = document.getElementById('response-mode');
   const submit = document.getElementById('fetch-metrics');
   const status = document.getElementById('request-status');
   const error = document.getElementById('request-error');
   const results = document.getElementById('results');
   const cards = document.getElementById('device-results');
   const empty = document.getElementById('empty-state');
+  const batchJson = document.getElementById('batch-json');
   document.getElementById('mcp-url').textContent = window.location.origin + '/mcp';
 
   function element(tag, text, className) {
@@ -74,7 +76,57 @@
     return section;
   }
 
-  function deviceCard(device) {
+  function dataTable(headings, rows) {
+    const wrap = element('div', null, 'table-wrap');
+    const table = element('table', null, 'data-table');
+    const head = element('thead');
+    const header = element('tr');
+    for (const title of headings) { const cell = element('th', title); cell.scope = 'col'; header.append(cell); }
+    head.append(header);
+    const body = element('tbody');
+    for (const values of rows) {
+      const row = element('tr');
+      values.forEach((value, index) => { const cell = element(index ? 'td' : 'th', value); if (!index) cell.scope = 'row'; row.append(cell); });
+      body.append(row);
+    }
+    table.append(head, body); wrap.append(table);
+    return wrap;
+  }
+
+  function reportedMetrics(snapshot, expanded) {
+    const entries = Object.entries(snapshot.metrics || {});
+    const details = element('details', null, 'reported-details');
+    details.open = expanded;
+    details.append(element('summary', 'All reported metrics (' + entries.length + ')'));
+    details.append(element('p', 'Values are preserved from the normalized MCP response. Raw fields retain unverified units or codes; zero and negative sentinels are not diagnoses.', 'field-help'));
+    const rows = entries.map(([key, value]) => {
+      const shown = typeof value === 'number' ? value.toLocaleString(undefined, {maximumFractionDigits: 20}) : value == null ? 'Unavailable' : String(value);
+      let meaning = key.endsWith('_raw') ? 'Raw value; unit or code unverified' : key.endsWith('_bytes') ? 'bytes' : key.endsWith('_percent') ? '%' : key.endsWith('_dbm') ? 'dBm (verified)' : 'Reported value';
+      if (typeof value === 'boolean') meaning = 'Reported state';
+      if (key === 'connection_mode') meaning = value === 0 ? 'Wi-Fi' : value === 1 ? 'Cellular' : 'Unknown mode';
+      if (key.startsWith('mqtt_') && key.endsWith('_count')) meaning = 'Connection states; not incident counts';
+      return [key, shown, meaning];
+    });
+    details.append(dataTable(['Metric field', 'Value', 'Unit / meaning'], rows));
+    return details;
+  }
+
+  function softwareDetails(snapshot, evaluation) {
+    const software = snapshot.software || {};
+    const versions = Object.entries(software.app_versions || {});
+    const details = element('details', null, 'reported-details');
+    details.append(element('summary', 'Software and reported app versions (' + versions.length + ')'));
+    const rows = [...Object.entries(software.device_info || {}),
+      ['App source timestamp', time(software.app_source_timestamp)], ['App last updated', time(software.app_last_updated)],
+      ['App inventory complete', software.app_inventory_complete === true ? 'Yes' : 'No / unavailable'],
+      ['App comparison status', evaluation.software_changes?.apps_status || 'Unavailable']];
+    details.append(dataTable(['Software field', 'Reported value'], rows));
+    if (versions.length) details.append(dataTable(['Package', 'Version'], versions));
+    details.append(element('p', 'App inventory has its own reporting time. Versions alone do not establish an upgrade time or the cause of a performance change.', 'field-help'));
+    return details;
+  }
+
+  function deviceCard(device, liveOnly) {
     const card = element('article', null, 'device-card');
     const heading = element('div', null, 'device-heading');
     const identity = element('div');
@@ -115,6 +167,9 @@
       card.append(timings);
     }
     if (snapshot) {
+      if (device.fetched_from_mst !== true || snapshot.is_device_online !== true || evaluation.source_freshness !== 'fresh') {
+        card.append(element('p', 'Stored reading only: this snapshot does not establish current online performance. Check the device status and source timestamp below.', 'reading-warning'));
+      }
       const metrics = snapshot.metrics || {};
       const grid = element('div', null, 'metrics-grid');
       grid.append(metric('CPU usage', number(metrics.cpu_used_percent, '%')));
@@ -123,7 +178,7 @@
       grid.append(metric('Active network', metrics.connection_mode === 0 ? 'Wi-Fi' : metrics.connection_mode === 1 ? 'Cellular' : 'Unknown'));
       card.append(grid);
       const timings = element('div', null, 'timings');
-      timings.append(timing('Device source timestamp', time(snapshot.source_timestamp)), timing('Observation collected at', time(snapshot.observed_at)));
+      timings.append(timing('Device source timestamp', time(snapshot.source_timestamp)), timing('Analytics last updated', time(snapshot.last_updated)), timing('Observation collected at', time(snapshot.observed_at)));
       if (evaluation.previous_observed_at) timings.append(timing('Previous observation', time(evaluation.previous_observed_at)));
       if (typeof evaluation.actual_interval_seconds === 'number') timings.append(timing('Observation interval', number(evaluation.actual_interval_seconds / 60, ' minutes')));
       card.append(timings, comparison(evaluation));
@@ -137,14 +192,15 @@
         recommendations.append(row);
       }
       card.append(recommendations);
+      card.append(reportedMetrics(snapshot, !liveOnly), softwareDetails(snapshot, evaluation));
     }
     const details = element('details', null, 'raw-details');
-    details.append(element('summary', 'View full metrics and response'), element('pre', JSON.stringify(device, null, 2)));
+    details.append(element('summary', 'Device response (JSON)'), element('pre', JSON.stringify(device, null, 2)));
     card.append(details);
     return card;
   }
 
-  async function fetchMetrics(serials, token, signal) {
+  async function fetchMetrics(serials, token, signal, liveOnly) {
     let id = 0;
     let protocol = '2025-03-26';
     let session;
@@ -170,7 +226,7 @@
     protocol = initialized.protocolVersion;
     await rpc('notifications/initialized', {}, true);
     status.textContent = 'Fetching ' + serials.length + ' device' + (serials.length === 1 ? '' : 's') + ' through MST…';
-    const value = await rpc('tools/call', {name: 'get_device_details', arguments: {serial_numbers: serials, refresh: true, live_only: true}});
+    const value = await rpc('tools/call', {name: 'get_device_details', arguments: {serial_numbers: serials, refresh: true, live_only: liveOnly}});
     if (value.isError) throw new Error('The device request was rejected. Check your serial numbers and connector configuration.');
     let batch = value.structuredContent;
     if (!batch?.devices) {
@@ -180,7 +236,7 @@
       }
     }
     if (!Array.isArray(batch?.devices)) throw new Error('The connector returned an unexpected device response.');
-    if (batch.live_only !== true) throw new Error('This deployment does not yet support online-only readings. Retry after the connector update is live.');
+    if (batch.live_only !== liveOnly) throw new Error('The connector did not confirm the selected response mode. Retry after the deployment update is live.');
     return batch;
   }
 
@@ -191,6 +247,7 @@
     serialInput.removeAttribute('aria-invalid');
     tokenInput.removeAttribute('aria-invalid');
     const token = tokenInput.value.trim();
+    const liveOnly = modeInput.value === 'online';
     const entries = serialInput.value.trim().split(/[,\s]+/).filter(Boolean);
     const serials = [...new Set(entries)];
     if (!serials.length || entries.length > 1000 || serials.length > 100 || serials.some(value => !/^[A-Za-z0-9_.:-]{1,128}$/.test(value))) {
@@ -202,16 +259,19 @@
       error.hidden = false; tokenInput.setAttribute('aria-invalid', 'true'); tokenInput.focus(); return;
     }
     submit.disabled = true;
+    modeInput.disabled = true;
     submit.textContent = 'Fetching metrics…';
     cards.replaceChildren(); results.hidden = true; empty.hidden = true;
+    batchJson.textContent = ''; document.getElementById('batch-response').open = false;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 180000);
     try {
-      const batch = await fetchMetrics(serials, token, controller.signal);
-      for (const device of batch.devices) cards.append(deviceCard(device));
-      document.getElementById('results-summary').textContent = batch.succeeded + ' online reading' + (batch.succeeded === 1 ? '' : 's') + ' · ' + batch.failed + ' unavailable · ' + batch.requested + ' requested';
+      const batch = await fetchMetrics(serials, token, controller.signal, liveOnly);
+      for (const device of batch.devices) cards.append(deviceCard(device, liveOnly));
+      batchJson.textContent = JSON.stringify(batch, null, 2);
+      document.getElementById('results-summary').textContent = liveOnly ? batch.succeeded + ' online reading' + (batch.succeeded === 1 ? '' : 's') + ' · ' + batch.failed + ' unavailable · ' + batch.requested + ' requested' : batch.succeeded + ' succeeded · ' + batch.failed + ' failed · ' + batch.requested + ' requested · full response';
       results.hidden = false;
-      status.textContent = batch.succeeded ? 'Online reading check complete. Review source times and any unavailable devices below.' : 'No current online readings are available. Review each device’s reporting status below.';
+      status.textContent = liveOnly ? (batch.succeeded ? 'Online reading check complete. Review source times and any unavailable devices below.' : 'No current online readings are available. Review each device’s reporting status below.') : 'Latest API response received. Check source timestamps, offline/stale warnings and per-device errors.';
     } catch (failure) {
       error.textContent = failure.name === 'AbortError' ? 'The request timed out. Some observations may have been collected; retry to request the latest readings.' : failure instanceof TypeError ? 'The connection was interrupted. Wait for the service to start, then retry.' : failure.message;
       error.hidden = false;
@@ -220,6 +280,7 @@
     } finally {
       clearTimeout(timeout);
       submit.disabled = false;
+      modeInput.disabled = false;
       submit.textContent = 'Fetch device metrics';
     }
   });

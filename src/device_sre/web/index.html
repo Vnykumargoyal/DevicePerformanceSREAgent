@@ -15,7 +15,7 @@
   <section class="hero" aria-labelledby="page-title">
     <p class="eyebrow">Device analytics</p>
     <h1 id="page-title">Check your device performance.</h1>
-    <p class="intro">Enter one or more serial numbers to check for current online readings through MST. Offline and old metrics are withheld.</p>
+    <p class="intro">Enter one or more serial numbers to fetch device details through MST. Choose current online readings or inspect the full latest API response.</p>
   </section>
   <form id="device-form" class="search-card" method="post" action="/" autocomplete="off">
     <div>
@@ -28,6 +28,14 @@
       <input id="connector-token" name="connector_token" type="password" required autocomplete="off" spellcheck="false" placeholder="Paste your dedicated MCP token" aria-describedby="token-help">
       <p class="field-help" id="token-help">Use the dedicated MCP token. The page keeps it only in this tab and does not save it. The MST credential stays on the server.</p>
     </div>
+    <div class="response-mode">
+      <label for="response-mode">Response mode</label>
+      <select id="response-mode" name="response_mode" aria-describedby="mode-help">
+        <option value="online" selected>Current online readings only</option>
+        <option value="full">Full latest API response</option>
+      </select>
+      <p class="field-help" id="mode-help">Both modes call MST on every search. Online mode withholds offline and old metrics. Full response shows the latest stored telemetry, including offline or old readings with warnings.</p>
+    </div>
     <div class="search-actions">
       <button id="fetch-metrics" type="submit">Fetch device metrics</button>
       <span id="request-status" role="status" aria-live="polite">Every search calls MST and checks online status and source time.</span>
@@ -37,11 +45,16 @@
   <section id="results" aria-label="Device results" hidden>
     <div class="results-heading"><h2>Device results</h2><span id="results-summary"></span></div>
     <div id="device-results" class="devices"></div>
+    <details class="raw-details" id="batch-response">
+      <summary>Full MCP response (JSON)</summary>
+      <p class="field-help">The complete result from this request, including batch counts, provenance and every returned device field. Observation times and retained history can differ between local and hosted installations.</p>
+      <pre id="batch-json"></pre>
+    </details>
   </section>
   <div id="empty-state" class="empty-state">
     <span class="empty-icon" aria-hidden="true">&#9636;</span>
     <h2>Your device readings will appear here</h2>
-    <p>View CPU, RAM, storage and comparisons when a device is online and has reported within the monitoring interval (15 minutes by default).</p>
+    <p>Inspect resource usage, battery, network, peripheral fields, software versions and the complete MCP JSON. Online mode requires a source reading within the monitoring interval (15 minutes by default).</p>
   </div>
   <details class="connection-settings">
     <summary>MCP connection settings for your agent</summary>
@@ -49,7 +62,7 @@
     <p><strong>Transport</strong> Streamable HTTP</p>
     <p><strong>Header</strong> <code>Authorization: Bearer &lt;your MCP token&gt;</code></p>
   </details>
-  <footer>Metrics are shown only for online devices with recent source readings. An MST request reads Analytics; it cannot wake a terminal or trigger a new collection.<br>Comparisons use retained observations only. The first reading creates a baseline; repeated source readings do not establish a trend.</footer>
+  <footer>Online mode requires recent telemetry and an online status. Full response mode can show old or offline readings; those do not establish current performance. An MST request reads Analytics and cannot trigger device collection.<br>Comparisons use each installation’s retained observations. The first reading creates a baseline; repeated source readings do not establish a trend.</footer>
 </main>
 <!-- SCRIPT -->
 </body>

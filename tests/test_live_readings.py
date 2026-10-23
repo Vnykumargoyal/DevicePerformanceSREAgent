@@ -107,3 +107,30 @@ def test_replayed_online_sample_cannot_satisfy_a_current_mst_request(tmp_path, m
     assert batch["succeeded"] == 0 and batch["fetched_from_mst"] is False
     assert batch["devices"][0]["snapshot"] is None
     assert batch["devices"][0]["error_code"] == "live_reading_unavailable"
+
+
+def test_explicit_full_response_retains_offline_metrics_and_software_with_stale_warnings(tmp_path, monkeypatch):
+    source = NOW - timedelta(days=2)
+    body = payload("0007", source)
+    details = body["data"]["device_details"]
+    details["is_device_online"] = False
+    details["device_metrics"]["battery"].update(level=16, ischarging=True, temperature=26.4)
+    details["device_metrics"]["carddiperror"] = -1
+    details["wifi_metrics"]["networkstats"] = {"latency": 74}
+    details["device_info"] = {"os_version": "10", "firmware_version": "001.02"}
+    body["data"]["app_data"] = {"device_id": "0007", "timestamp": source.isoformat(),
+        "app_data": [{"package_name": "com.example.synthetic", "app_version": "001.02"}]}
+    tools = make_tools(tmp_path, monkeypatch, lambda request: httpx.Response(200, json=body))
+    batch = asyncio.run(tools.get_device_details("0007", refresh=True, live_only=False))
+    assert batch["live_only"] is False and batch["succeeded"] == 1
+    device = batch["devices"][0]
+    assert device["fetched_from_mst"] is True and "live_reading_available" not in device
+    snapshot = device["snapshot"]
+    assert snapshot["is_device_online"] is False
+    assert snapshot["metrics"]["battery_level_raw"] == 16
+    assert snapshot["metrics"]["battery_is_charging"] is True
+    assert snapshot["metrics"]["card_dip_error_raw"] == -1
+    assert snapshot["metrics"]["wifi_latency_raw"] == 74
+    assert snapshot["software"]["app_versions"] == {"com.example.synthetic": "001.02"}
+    assert device["evaluation"]["source_freshness"] == "stale"
+    assert {"api_reports_offline", "telemetry_stale"} <= {finding["code"] for finding in device["evaluation"]["findings"]}
