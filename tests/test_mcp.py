@@ -124,13 +124,15 @@ def test_browser_origin_handshake_and_parameterized_batch(tmp_path, monkeypatch)
                     assert rejected.status_code == 403
                 response = await client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 2,
                     "method": "tools/call", "params": {"name": "get_device_details", "arguments": {
-                        "serial_numbers": ["0007", "0008", "0007", "DENIED"], "refresh": True}}})
+                        "serial_numbers": ["0007", "0008", "0007", "DENIED"], "refresh": True, "live_only": True}}})
                 assert response.status_code == 200
                 result = response.json()["result"]
                 batch = json.loads(next(item["text"] for item in result["content"] if item["type"] == "text"))
                 assert batch["requested"] == 3 and batch["succeeded"] == 2 and batch["failed"] == 1
                 assert {item["device_id"] for item in batch["devices"]} == {"0007", "0008", "DENIED"}
                 assert batch["devices"][0]["fetched_from_mst"] is True
+                assert batch["live_only"] is True and batch["live_reading_count"] == 2
+                assert batch["devices"][0]["live_reading_available"] is True
                 assert batch["devices"][2]["error_code"] == "mst_http_403"
                 assert sorted(requested) == ["0007", "0008", "DENIED"]
 

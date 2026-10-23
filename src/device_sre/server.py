@@ -35,6 +35,8 @@ def create_server(settings, client=None, clock=utc_now):
             enable_dns_rebinding_protection=True, allowed_hosts=allowed_hosts, allowed_origins=browser_origins),
         instructions="Pass one serial string or an array to get_device_details; MST authorizes access. "
                      "That tool fetches and caches observations; the other tools read retained cache. "
+                     "For current online data, pass refresh=true and live_only=true; this withholds offline, old and cached metrics. "
+                     "Analytics GET cannot trigger device collection. "
                      "Treat stale, missing and failed polls as unknown; deletion audit is not time-series history.",
     )
     reader = Tools(settings, Store(settings.data_dir), clock=clock, client=client)

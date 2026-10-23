@@ -3,6 +3,26 @@
 
 def error_details(code):
     messages = {
+        "live_device_offline": (
+            "live_availability", "No current online reading is available. MST reports this device offline; its stored metrics are withheld.",
+            ["Check terminal power, network and metrics-collector delivery, then retry after the terminal reports new telemetry. This GET cannot wake the terminal or trigger collection."],
+        ),
+        "live_status_unknown": (
+            "live_availability", "No current online reading is available because MST did not confirm that the device is online.",
+            ["Verify the Analytics online-status field and device telemetry delivery, then retry."],
+        ),
+        "live_telemetry_stale": (
+            "live_availability", "MST reports the device online, but its source reading exceeds the allowed live-reading age. Old metrics are withheld.",
+            ["Check metrics-collector reporting and ingestion. Retry after a new reading reaches Analytics; making another GET does not force device collection."],
+        ),
+        "live_telemetry_future": (
+            "live_availability", "The device source timestamp is in the future, so this reading cannot be accepted as current online data.",
+            ["Check device and server clock synchronization, then retry after valid telemetry is reported."],
+        ),
+        "live_reading_unavailable": (
+            "live_availability", "This request did not obtain a current online reading directly from MST. Cached and replayed metrics are withheld.",
+            ["Retry through the live MST adapter with an approved credential and an online device reporting recent telemetry."],
+        ),
         "mst_credential_unavailable": (
             "credential",
             "No usable MST credential is available. Device collection cannot continue.",

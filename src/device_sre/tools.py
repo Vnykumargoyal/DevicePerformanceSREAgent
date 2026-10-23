@@ -1,6 +1,6 @@
 from .analysis import compare
 from .errors import error_details
-from .metrics import boundary, iso
+from .metrics import as_time, boundary, iso
 from .monitor import poll, utc_now, fetch_provenance
 from .settings import normalize_serial_numbers
 
@@ -58,19 +58,59 @@ class Tools:
             result["evaluation"] = compare(previous, snapshot, self.settings, self.clock())
         return result
 
-    async def get_device_details(self, serial_numbers: str | list[str], refresh: bool = True) -> dict:
+    def _live_reading(self, result):
+        """Withhold metrics unless this request obtained a recent online MST reading."""
+        result = dict(result)
+        snapshot = result.get("snapshot")
+        max_age = min(self.settings.poll_seconds, self.settings.stale_seconds)
+        code = result.get("error_code")
+        if snapshot and result.get("fetched_from_mst") and not code:
+            age = (self.clock() - as_time(snapshot["source_timestamp"])).total_seconds()
+            result["source_status"] = {
+                "is_device_online": snapshot["is_device_online"],
+                "source_timestamp": snapshot["source_timestamp"],
+                "observed_at": snapshot["observed_at"],
+                "source_age_seconds": round(age, 3), "max_source_age_seconds": max_age,
+            }
+            if snapshot["is_device_online"] is False:
+                code = "live_device_offline"
+            elif snapshot["is_device_online"] is not True:
+                code = "live_status_unknown"
+            elif age < 0:
+                code = "live_telemetry_future"
+            elif age > max_age:
+                code = "live_telemetry_stale"
+        elif not code:
+            code = "live_reading_unavailable"
+        result["live_reading_available"] = not bool(code)
+        if code:
+            # A failed refresh must never expose an older cached snapshot in live-only mode.
+            result.update(snapshot=None, status="live_reading_unavailable", error_code=code)
+            result.pop("evaluation", None)
+        return result
+
+    async def get_device_details(self, serial_numbers: str | list[str], refresh: bool = True,
+                                 live_only: bool = False) -> dict:
         """Pass a serial string or array (max 100 unique). No configured serial list required.
 
         By default GET each device through authenticated MST, cache successful observations
         and compare with the earlier baseline. refresh=false reads cache only. Return a
         devices array in both cases, including per-device failures without losing successes.
         Every refresh=true call requests MST again, even when a cached reading exists.
+        Use live_only=true for current online metrics: requires refresh=true, a validated
+        MST response, is_device_online=true and a non-future source reading no older than
+        min(poll_seconds, stale_seconds), 900 seconds by default. Otherwise metrics and
+        comparisons are withheld, with a per-device reason and live_reading_available=false.
+        This GET reads Analytics' latest stored telemetry; it cannot wake a device or
+        trigger a new collection. fetched_from_mst reports API provenance, not freshness.
         fetched_from_mst is true only for validated MST responses from this call; the
         top-level flag requires all requested devices, with a separate success count.
         This call does not create a recurring schedule; the separate worker takes the same
         serials as command-line parameters for 15-minute polling.
         """
         serials = self.serials(serial_numbers)
+        if live_only and not refresh:
+            raise ValueError("live_only requires refresh=true; cached observations cannot satisfy an online request")
         collection = None
         if refresh:
             collection = await poll(self.settings, self.store, client=self.client,
@@ -89,7 +129,12 @@ class Tools:
                 results.append(result)
         else:
             results = [self._cached_details(serial) for serial in serials]
+        if live_only:
+            results = [self._live_reading(result) for result in results]
         return {**self.batch(results), **fetch_provenance(results), "refreshed": refresh,
+                "live_only": live_only,
+                "live_reading_count": sum(result.get("live_reading_available") is True for result in results),
+                "live_max_age_seconds": min(self.settings.poll_seconds, self.settings.stale_seconds) if live_only else None,
                 "run_id": collection["run_id"] if collection else None}
 
     def get_device_history(self, serial_numbers: str | list[str], start: str, end: str,

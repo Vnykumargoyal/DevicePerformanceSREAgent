@@ -86,7 +86,9 @@
     if (contextText) identity.append(element('div', contextText, 'device-context'));
     heading.append(identity);
     const badges = element('div', null, 'badges');
-    badges.append(badge(device.fetched_from_mst ? 'Fetched from MST' : snapshot ? 'Cached observation' : 'Fetch failed', device.fetched_from_mst ? 'good' : 'error'));
+    if (device.live_reading_available === true) badges.append(badge('Current online reading', 'good'));
+    else if (device.live_reading_available === false) badges.append(badge('No current online reading', 'warning'));
+    badges.append(badge(device.fetched_from_mst ? 'MST checked' : snapshot ? 'Cached observation' : 'Fetch failed', device.fetched_from_mst ? '' : 'error'));
     if (snapshot) {
       badges.append(badge(evaluation.source_freshness === 'fresh' ? 'Fresh telemetry' : evaluation.source_freshness === 'stale' ? 'Stale telemetry' : 'Check source timing', evaluation.source_freshness === 'fresh' ? '' : 'warning'));
       badges.append(badge(snapshot.is_device_online === true ? 'Device reports online' : snapshot.is_device_online === false ? 'Device reports offline' : 'Online status unknown', snapshot.is_device_online === false ? 'warning' : ''));
@@ -103,6 +105,14 @@
         failure.append(list);
       }
       card.append(failure);
+    }
+    if (!snapshot && device.source_status) {
+      const source = device.source_status;
+      const timings = element('div', null, 'timings');
+      timings.append(timing('Last device source timestamp', time(source.source_timestamp)), timing('MST checked at', time(source.observed_at)));
+      timings.append(timing('MST online status', source.is_device_online === true ? 'Online' : source.is_device_online === false ? 'Offline' : 'Unknown'));
+      timings.append(timing('Maximum reading age', number(source.max_source_age_seconds / 60, ' minutes')));
+      card.append(timings);
     }
     if (snapshot) {
       const metrics = snapshot.metrics || {};
@@ -160,7 +170,7 @@
     protocol = initialized.protocolVersion;
     await rpc('notifications/initialized', {}, true);
     status.textContent = 'Fetching ' + serials.length + ' device' + (serials.length === 1 ? '' : 's') + ' through MST…';
-    const value = await rpc('tools/call', {name: 'get_device_details', arguments: {serial_numbers: serials, refresh: true}});
+    const value = await rpc('tools/call', {name: 'get_device_details', arguments: {serial_numbers: serials, refresh: true, live_only: true}});
     if (value.isError) throw new Error('The device request was rejected. Check your serial numbers and connector configuration.');
     let batch = value.structuredContent;
     if (!batch?.devices) {
@@ -170,6 +180,7 @@
       }
     }
     if (!Array.isArray(batch?.devices)) throw new Error('The connector returned an unexpected device response.');
+    if (batch.live_only !== true) throw new Error('This deployment does not yet support online-only readings. Retry after the connector update is live.');
     return batch;
   }
 
@@ -198,9 +209,9 @@
     try {
       const batch = await fetchMetrics(serials, token, controller.signal);
       for (const device of batch.devices) cards.append(deviceCard(device));
-      document.getElementById('results-summary').textContent = batch.succeeded + ' succeeded · ' + batch.failed + ' failed · ' + batch.requested + ' requested';
+      document.getElementById('results-summary').textContent = batch.succeeded + ' online reading' + (batch.succeeded === 1 ? '' : 's') + ' · ' + batch.failed + ' unavailable · ' + batch.requested + ' requested';
       results.hidden = false;
-      status.textContent = batch.failed ? 'Fetch complete with device errors. Review each result below.' : 'Live MST fetch complete. Device source times are shown below.';
+      status.textContent = batch.succeeded ? 'Online reading check complete. Review source times and any unavailable devices below.' : 'No current online readings are available. Review each device’s reporting status below.';
     } catch (failure) {
       error.textContent = failure.name === 'AbortError' ? 'The request timed out. Some observations may have been collected; retry to request the latest readings.' : failure instanceof TypeError ? 'The connection was interrupted. Wait for the service to start, then retry.' : failure.message;
       error.hidden = false;
