@@ -1,0 +1,45 @@
+{
+  "purpose": "Registration checklist, not an unverified platform API request body",
+  "agent_id": "REPLACE_WITH_YOUR_AGENT_ID",
+  "agent_name": "Device Performance SRE Agent",
+  "connector_name": "mcp_device_performance_sre",
+  "category": "ops",
+  "mcp": true,
+  "transport": "streamable-http",
+  "local_url": "http://127.0.0.1:8765/mcp",
+  "platform_url": "REPLACE_WITH_APPROVED_INTERNAL_HTTPS_MCP_URL",
+  "authentication": "Authorization: Bearer <dedicated MCP connector credential from secret store>",
+  "never_supply_to_platform": "MST bearer token",
+  "serial_parameters": {
+    "single_device": {
+      "serial_numbers": "000001"
+    },
+    "multiple_devices": {
+      "serial_numbers": [
+        "000001",
+        "000002"
+      ]
+    },
+    "max_unique_per_mcp_request": 100,
+    "configured_serial_list_required": false
+  },
+  "tool_effects": {
+    "get_device_details": "GET through MST and save successful local cache observations; no device mutation",
+    "other_tools": "Read retained cache only"
+  },
+  "functions": [
+    "get_monitor_health",
+    "list_monitored_devices",
+    "get_device_details",
+    "get_device_history",
+    "compare_device_snapshots",
+    "get_fleet_summary"
+  ],
+  "registration_status": "not_registered",
+  "activation_status": "keep_shadow_until_live_end_to_end_validation",
+  "summary_schedule_after_connection": {
+    "interval_minutes": 15,
+    "timezone": "Asia/Kolkata",
+    "prompt": "Use the serial_numbers string/array supplied in this schedule's task parameters. Check monitor health, call get_device_details for those serials to collect and compare, and summarize each device separately. Flag stale data, failures and resource pressure without discarding successful results from a mixed batch. Use actual source/observation intervals and recommend evidence-based improvements for human review. Do not infer serials from examples or unrelated cache entries."
+  }
+}

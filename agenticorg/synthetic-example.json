@@ -1,0 +1,150 @@
+{
+  "synthetic_data_only": true,
+  "data_directory": "data/synthetic-demo/2bded80e2c74419eb5145f0d3556b7f4",
+  "summary": {
+    "evaluated_at": "2026-10-22T04:48:21.169086Z",
+    "coverage": {
+      "configured": 2,
+      "observed": 2,
+      "missing": 0,
+      "fetch_failed": 0,
+      "stale": 0,
+      "warning": 1,
+      "ok": 1,
+      "info": 0,
+      "unknown": 0
+    },
+    "devices": [
+      {
+        "device_id": "DEMO-TERMINAL-001",
+        "latest_attempt": {
+          "run_id": "38388763-8a21-44a7-8c10-28bbe4af0810",
+          "observed_at": "2026-10-22T04:48:21.169086Z",
+          "error_code": null
+        },
+        "status": "cached_observation",
+        "evaluation": {
+          "device_id": "DEMO-TERMINAL-001",
+          "evaluated_at": "2026-10-22T04:48:21.169086Z",
+          "current_observed_at": "2026-10-22T04:48:21.169086Z",
+          "previous_observed_at": "2026-10-22T04:33:21.169086Z",
+          "current_source_timestamp": "2026-10-22T04:48:21.169086Z",
+          "previous_source_timestamp": "2026-10-22T04:33:21.169086Z",
+          "source_interval_seconds": 900.0,
+          "baseline_status": "compared",
+          "actual_interval_seconds": 900.0,
+          "source_freshness": "fresh",
+          "source_age_seconds": 0,
+          "cache_age_seconds": 0,
+          "severity": "warning",
+          "deltas": {
+            "ram_used_percent": {
+              "previous": 45.0,
+              "current": 92.0,
+              "delta": 47.0,
+              "unit": "percentage_points"
+            },
+            "storage_used_percent": {
+              "previous": 60.0,
+              "current": 91.0,
+              "delta": 31.0,
+              "unit": "percentage_points"
+            }
+          },
+          "findings": [
+            {
+              "code": "ram_used_percent_increase",
+              "severity": "warning",
+              "evidence": {
+                "previous": 45.0,
+                "current": 92.0,
+                "delta": 47.0,
+                "unit": "percentage_points"
+              },
+              "recommendation": "Correlate resource growth with app activity and logs; investigate a sustained increase before remediation."
+            },
+            {
+              "code": "storage_used_percent_increase",
+              "severity": "warning",
+              "evidence": {
+                "previous": 60.0,
+                "current": 91.0,
+                "delta": 31.0,
+                "unit": "percentage_points"
+              },
+              "recommendation": "Correlate resource growth with app activity and logs; investigate a sustained increase before remediation."
+            },
+            {
+              "code": "ram_used_percent_threshold",
+              "severity": "warning",
+              "evidence": {
+                "value": 92.0,
+                "threshold": 85
+              },
+              "recommendation": "Inspect per-app memory and recent releases. Confirm persistent pressure before proposing an app restart."
+            },
+            {
+              "code": "storage_used_percent_threshold",
+              "severity": "warning",
+              "evidence": {
+                "value": 91.0,
+                "threshold": 85
+              },
+              "recommendation": "Inspect log/cache growth and retention. Propose approved cleanup; do not delete device data automatically."
+            }
+          ],
+          "limitations": "Polling observations only; no backfill, root-cause proof, CPU or transaction-latency measurements."
+        }
+      },
+      {
+        "device_id": "DEMO-TERMINAL-002",
+        "latest_attempt": {
+          "run_id": "38388763-8a21-44a7-8c10-28bbe4af0810",
+          "observed_at": "2026-10-22T04:48:21.169086Z",
+          "error_code": null
+        },
+        "status": "cached_observation",
+        "evaluation": {
+          "device_id": "DEMO-TERMINAL-002",
+          "evaluated_at": "2026-10-22T04:48:21.169086Z",
+          "current_observed_at": "2026-10-22T04:48:21.169086Z",
+          "previous_observed_at": "2026-10-22T04:33:21.169086Z",
+          "current_source_timestamp": "2026-10-22T04:48:21.169086Z",
+          "previous_source_timestamp": "2026-10-22T04:33:21.169086Z",
+          "source_interval_seconds": 900.0,
+          "baseline_status": "compared",
+          "actual_interval_seconds": 900.0,
+          "source_freshness": "fresh",
+          "source_age_seconds": 0,
+          "cache_age_seconds": 0,
+          "severity": "ok",
+          "deltas": {
+            "ram_used_percent": {
+              "previous": 45.0,
+              "current": 45.0,
+              "delta": 0.0,
+              "unit": "percentage_points"
+            },
+            "storage_used_percent": {
+              "previous": 60.0,
+              "current": 60.0,
+              "delta": 0.0,
+              "unit": "percentage_points"
+            }
+          },
+          "findings": [],
+          "limitations": "Polling observations only; no backfill, root-cause proof, CPU or transaction-latency measurements."
+        }
+      }
+    ],
+    "next_offset": null,
+    "thresholds": {
+      "ram_used_percent": 85,
+      "storage_used_percent": 85,
+      "wifi_signal_dbm": -75,
+      "cellular_signal_dbm": -105,
+      "increase_percentage_points": 10
+    },
+    "note": "Coverage counts overlap; warnings are evidence for investigation, not proven causes."
+  }
+}

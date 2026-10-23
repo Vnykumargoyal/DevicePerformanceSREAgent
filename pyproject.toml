@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling>=1.26,<2"]
+build-backend = "hatchling.build"
+
+[project]
+name = "device-performance-sre"
+version = "0.1.0"
+description = "Read-only MST device analytics MCP connector and persistent 15-minute monitor"
+requires-python = ">=3.11"
+dependencies = ["mcp>=1.20,<2", "httpx>=0.28,<1", "python-dotenv>=1,<2"]
+
+[project.optional-dependencies]
+test = ["pytest>=8,<10"]
+
+[project.scripts]
+device-sre = "device_sre.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/device_sre"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+

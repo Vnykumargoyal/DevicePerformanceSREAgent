@@ -1,0 +1,144 @@
+{
+  "data": {
+    "device_details": {
+      "model": "A920Pro",
+      "manufacturer": "lephone",
+      "device_info": {
+        "android_api_level": 27,
+        "firmware_version": "12",
+        "build_number": "PayDroid_8.1.0_Sagittarius_V11.1.56_20231107",
+        "customer_resource_version": "",
+        "os_version": "8.1.0"
+      },
+      "timestamp": "2026-09-21T07:54:00.538+00:00",
+      "last_updated": "2026-09-21T07:54:01.359+00:00",
+      "is_device_online": false,
+      "device_id": "FIXTURE-DEVICE",
+      "device_metrics": {
+        "battery": {
+          "health": "Good",
+          "capacity": 0,
+          "level": 9,
+          "ischarging": true,
+          "chargetype": "",
+          "voltage": 0,
+          "temperature": 30.0,
+          "cyclecount": 0,
+          "batteryerror": 0
+        },
+        "temperature": {
+          "cputemp": 42.99,
+          "gputemp": 42.99
+        },
+        "ram": {
+          "totalbytes": 1984270336,
+          "usedbytes": 762195968,
+          "availablebytes": 0
+        },
+        "storage": {
+          "totalbytes": 13058928640,
+          "usedbytes": 2391355392,
+          "availablebytes": 0
+        },
+        "cpu": {
+          "totalusage": 18.81778907775879,
+          "usedpercentage": 18.81778907775879
+        },
+        "connectionmode": 0,
+        "printererror": 0,
+        "carddiperror": -1,
+        "cardswipeerror": -1,
+        "cardtaperror": -1,
+        "padnointernetcounter": -1,
+        "mqttstatus": [
+          {
+            "connected": true
+          },
+          {
+            "connected": true
+          }
+        ]
+      },
+      "wifi_metrics": {
+        "enabled": true,
+        "connected": true,
+        "networkstats": {
+          "downloadspeed": 0,
+          "uploadspeed": 83305284,
+          "latency": 0
+        },
+        "signalstrength": -52
+      },
+      "cellular_metrics": {
+        "dataenabled": false,
+        "networktype": "Wi-Fi",
+        "connectiontype": "Connected",
+        "networkstats": {
+          "downloadspeed": 0,
+          "uploadspeed": 100449,
+          "latency": 0
+        },
+        "signalstrength": 4
+      }
+    },
+    "app_data": {
+      "device_id": "FIXTURE-DEVICE",
+      "timestamp": "2026-09-21T07:54:00.538+00:00",
+      "last_updated": "2026-09-21T07:54:01.369+00:00",
+      "app_data": [
+        {
+          "package_name": "com.pax.browser",
+          "app_version": "V1.00.01_20200715"
+        },
+        {
+          "package_name": "com.pax.ipp.neptune",
+          "app_version": "V3.10.01_20200610"
+        },
+        {
+          "package_name": "com.pax.gmsinstaller",
+          "app_version": "V1.1_20201210"
+        },
+        {
+          "package_name": "com.pax.pinelabsrki",
+          "app_version": "V1.9_20220418"
+        },
+        {
+          "package_name": "com.pax.ftlite",
+          "app_version": "FTLITE_V1.0.6"
+        },
+        {
+          "package_name": "com.pax.market.android.app",
+          "app_version": "8.5.1"
+        },
+        {
+          "package_name": "com.pinelabs.plutusplus",
+          "app_version": "080926"
+        },
+        {
+          "package_name": "com.pinelabs.masterapp",
+          "app_version": "18092026"
+        },
+        {
+          "package_name": "com.pax.in_pinelabrki",
+          "app_version": "2.00.00_20200108"
+        },
+        {
+          "package_name": "com.pinelabs.tmsstore",
+          "app_version": "180826"
+        },
+        {
+          "package_name": "com.pax.rki",
+          "app_version": "2.03.06"
+        },
+        {
+          "package_name": "com.pax.ft",
+          "app_version": "FTEST_V2.0.45"
+        },
+        {
+          "package_name": "com.pax.paxscans",
+          "app_version": "V7.54"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "poll_seconds": 900,
+  "retention_days": 7,
+  "stale_seconds": 1800,
+  "concurrency": 4,
+  "request_timeout_seconds": 20,
+  "signal_units": {"wifi": null, "cellular": null},
+  "thresholds": {
+    "ram_used_percent": 85,
+    "storage_used_percent": 85,
+    "cpu_used_percent": 85,
+    "wifi_signal_dbm": -75,
+    "cellular_signal_dbm": -105,
+    "increase_percentage_points": 10
+  }
+}
+
