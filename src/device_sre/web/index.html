@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Device Performance SRE | Device Metrics</title>
+  <!-- STYLES -->
+</head>
+<body>
+<main>
+  <header>
+    <div class="brand"><span class="mark">SRE</span> Device Performance</div>
+    <a class="health" href="/healthz">Service health &nearr;</a>
+  </header>
+  <section class="hero" aria-labelledby="page-title">
+    <p class="eyebrow">Device analytics</p>
+    <h1 id="page-title">Check your device performance.</h1>
+    <p class="intro">Enter one or more serial numbers to fetch live readings through MST and compare them with the previous saved observation.</p>
+  </section>
+  <form id="device-form" class="search-card" method="post" action="/" autocomplete="off">
+    <div>
+      <label for="serial-numbers">Device serial numbers</label>
+      <textarea id="serial-numbers" name="serial_numbers" rows="3" required spellcheck="false" placeholder="Enter one serial, or separate several with commas or spaces" aria-describedby="serial-help"></textarea>
+      <p class="field-help" id="serial-help">Up to 100 distinct devices. Leading zeros are preserved.</p>
+    </div>
+    <div>
+      <label for="connector-token">MCP connector token</label>
+      <input id="connector-token" name="connector_token" type="password" required autocomplete="off" spellcheck="false" placeholder="Paste your dedicated MCP token" aria-describedby="token-help">
+      <p class="field-help" id="token-help">Use the dedicated MCP token. The page keeps it only in this tab and does not save it. The MST credential stays on the server.</p>
+    </div>
+    <div class="search-actions">
+      <button id="fetch-metrics" type="submit">Fetch device metrics</button>
+      <span id="request-status" role="status" aria-live="polite">Every search requests fresh data from MST.</span>
+    </div>
+  </form>
+  <div id="request-error" class="error-banner" role="alert" hidden></div>
+  <section id="results" aria-label="Device results" hidden>
+    <div class="results-heading"><h2>Device results</h2><span id="results-summary"></span></div>
+    <div id="device-results" class="devices"></div>
+  </section>
+  <div id="empty-state" class="empty-state">
+    <span class="empty-icon" aria-hidden="true">&#9636;</span>
+    <h2>Your device readings will appear here</h2>
+    <p>View CPU, RAM, storage, source timestamps and performance recommendations for each requested device.</p>
+  </div>
+  <details class="connection-settings">
+    <summary>MCP connection settings for your agent</summary>
+    <p><strong>Endpoint</strong> <code id="mcp-url">/mcp</code></p>
+    <p><strong>Transport</strong> Streamable HTTP</p>
+    <p><strong>Header</strong> <code>Authorization: Bearer &lt;your MCP token&gt;</code></p>
+  </details>
+  <footer>Source timestamps show when the device reported its telemetry. A live MST fetch can return an older device reading.<br>Comparisons use retained observations only. The first reading creates a baseline; repeated source readings do not establish a trend.</footer>
+</main>
+<!-- SCRIPT -->
+</body>
+</html>

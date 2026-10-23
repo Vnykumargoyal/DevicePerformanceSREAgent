@@ -72,7 +72,7 @@ def test_browser_home_is_public_but_mcp_stays_protected(tmp_path, monkeypatch):
             home = await client.get("/")
             assert home.status_code == 200
             assert home.headers["content-type"].startswith("text/html")
-            assert "Your connector" in home.text and "Streamable HTTP" in home.text
+            assert "Fetch device metrics" in home.text and "Streamable HTTP" in home.text
             assert secret not in home.text
             assert "data/render-connector-token" not in home.text
             assert home.headers["cache-control"] == "no-store"
@@ -85,6 +85,54 @@ def test_browser_home_is_public_but_mcp_stays_protected(tmp_path, monkeypatch):
             monkeypatch.delenv("SRE_MCP_BEARER_TOKEN")
             assert (await client.get("/")).status_code == 200
             assert (await client.post("/mcp", json={})).status_code == 503
+
+    asyncio.run(check())
+
+
+def test_browser_origin_handshake_and_parameterized_batch(tmp_path, monkeypatch):
+    from device_sre.demo import payload
+    from device_sre.monitor import utc_now
+
+    monkeypatch.setenv("SRE_ALLOWED_HOSTS", "devices.example")
+    monkeypatch.setenv("SRE_MCP_BEARER_TOKEN", "browser-test-token-" + "x" * 40)
+    monkeypatch.delenv("SRE_MCP_TOKEN_FILE", raising=False)
+    monkeypatch.setenv("MST_BEARER_TOKEN", "synthetic-mst-token")
+    monkeypatch.delenv("MST_TOKEN_FILE", raising=False)
+    requested = []
+
+    def upstream(request):
+        serial = request.headers["hardware-serial-number"]
+        requested.append(serial)
+        return httpx.Response(403) if serial == "DENIED" else httpx.Response(200, json=payload(serial, utc_now()))
+
+    settings = Settings(data_dir=tmp_path)
+    server = create_server(settings, client=MSTClient(settings, transport=httpx.MockTransport(upstream)))
+    app = BearerGuard(server.streamable_http_app())
+
+    async def check():
+        async with server.session_manager.run():
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://devices.example") as client:
+                headers = {"Authorization": "Bearer " + "browser-test-token-" + "x" * 40,
+                           "Origin": "https://devices.example", "Accept": "application/json, text/event-stream"}
+                initialize = {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
+                    "protocolVersion": "2025-03-26", "capabilities": {}, "clientInfo": {"name": "browser-test", "version": "1"}}}
+                assert (await client.post("/mcp", headers=headers, json=initialize)).status_code == 200
+                assert (await client.post("/mcp", headers=headers, json={
+                    "jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})).status_code == 202
+                for origin in ("https://evil.invalid", "http://devices.example"):
+                    rejected = await client.post("/mcp", headers={**headers, "Origin": origin}, json=initialize)
+                    assert rejected.status_code == 403
+                response = await client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 2,
+                    "method": "tools/call", "params": {"name": "get_device_details", "arguments": {
+                        "serial_numbers": ["0007", "0008", "0007", "DENIED"], "refresh": True}}})
+                assert response.status_code == 200
+                result = response.json()["result"]
+                batch = json.loads(next(item["text"] for item in result["content"] if item["type"] == "text"))
+                assert batch["requested"] == 3 and batch["succeeded"] == 2 and batch["failed"] == 1
+                assert {item["device_id"] for item in batch["devices"]} == {"0007", "0008", "DENIED"}
+                assert batch["devices"][0]["fetched_from_mst"] is True
+                assert batch["devices"][2]["error_code"] == "mst_http_403"
+                assert sorted(requested) == ["0007", "0008", "DENIED"]
 
     asyncio.run(check())
 

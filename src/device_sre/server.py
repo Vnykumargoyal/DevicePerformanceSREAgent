@@ -1,5 +1,6 @@
 import hmac
 import os
+from urllib.parse import urlsplit
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -22,10 +23,16 @@ def create_server(settings, client=None, clock=utc_now):
     allowed_hosts = [s.strip() for s in os.getenv("SRE_ALLOWED_HOSTS", "127.0.0.1:*,localhost:*").split(",") if s.strip()]
     if not allowed_hosts or "*" in allowed_hosts:
         raise ValueError("SRE_ALLOWED_HOSTS must list exact trusted hostnames (port wildcards are allowed)")
+    # Browser POSTs carry Origin. Trust configured connector hosts only.
+    browser_origins = []
+    for host in allowed_hosts:
+        browser_origins.append("https://" + host)
+        if urlsplit("//" + host.removesuffix(":*")).hostname in ("localhost", "127.0.0.1", "::1"):
+            browser_origins.append("http://" + host)
     mcp = FastMCP(
         "Device Performance SRE", json_response=True, stateless_http=True,
         transport_security=TransportSecuritySettings(
-            enable_dns_rebinding_protection=True, allowed_hosts=allowed_hosts, allowed_origins=[]),
+            enable_dns_rebinding_protection=True, allowed_hosts=allowed_hosts, allowed_origins=browser_origins),
         instructions="Pass one serial string or an array to get_device_details; MST authorizes access. "
                      "That tool fetches and caches observations; the other tools read retained cache. "
                      "Treat stale, missing and failed polls as unknown; deletion audit is not time-series history.",
