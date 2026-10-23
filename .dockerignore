@@ -1,0 +1,10 @@
+# Allow only runtime source into the Docker build context.
+**
+!Dockerfile
+!requirements-runtime.lock
+!monitor.example.json
+!src/
+!src/**
+src/**/__pycache__/
+src/**/*.pyc
+src/**/*.egg-info/

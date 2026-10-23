@@ -168,6 +168,70 @@ When ready, follow the [Pine Labs connector guide](https://www.pinelabs.ai/docs/
 
 This is a **single-operator local pilot**, with a dedicated data directory per authorization scope. Live details requests are authenticated and device/merchant-authorized by MST. The MCP bearer also grants the instance's retained cache; cached-only reads are not live MST authorization checks or per-user/historical ownership checks. Before sharing more broadly or serving changing ownership, add tenant/device authorization and historical ownership enforcement at the connector boundary. Do not reuse one cache across unrelated operators/tenants. Retire cached history according to your authorization and retention policy.
 
+## Docker deployment from Git
+
+The repository includes a non-root Docker image, `compose.yaml`, an optional worker, a persistent SQLite volume and a GitHub Actions workflow. GitHub stores the source and can publish its container image; a running HTTPS `/mcp` URL requires an approved host and reverse proxy with access to MST. No hosting environment or hostname is provisioned by this repository.
+
+On that **Linux Docker host**, install Docker Engine with Compose v2 and Python 3, then:
+
+```sh
+git clone https://github.com/Vnykumargoyal/DevicePerformanceSREAgent.git
+cd DevicePerformanceSREAgent
+cp deploy/compose.env.example .env.docker
+cp monitor.example.json monitor.json
+sudo python3 deploy/configure_tokens.py
+docker compose --env-file .env.docker config --quiet
+docker compose --env-file .env.docker up --detach --build mcp
+curl --fail http://127.0.0.1:8765/healthz
+```
+
+`configure_tokens.py` takes the approved MST credential through hidden terminal input and generates a separate MCP credential if one does not exist. It writes no credential values to stdout, preserves an existing MCP token and sets Linux ownership/modes for container UID/GID `10001`. Token files live in ignored `secrets/mst/token` and `secrets/mcp/token`. Run it from the repository root. Existing local `data/mst-token` is not automatically copied to a deployment host. Use the host's approved secret manager to supply/renew credentials, or rerun this setup to replace the MST token; files are mounted via read-only directories so atomic rotation remains visible to the running processes. Never commit these files or put token values in Compose/environment examples, shell arguments or the agent prompt.
+
+The default host port is loopback `127.0.0.1:8765`. Container processes bind `0.0.0.0` internally. The root filesystem is read-only, capabilities are dropped and observations persist in the Compose `observations` volume. Keep one worker and one connector per authorization scope; do not scale SQLite across hosts or use a shared unrelated-tenant cache. `/healthz` confirms only that the HTTP process is alive.
+
+For authenticated discovery, install the client dependencies in an isolated host virtual environment and run the supplied smoke check:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-runtime.lock
+sudo .venv/bin/python deploy/smoke_test.py --token-file secrets/mcp/token
+```
+
+This check requires unauthenticated `/mcp` to return 401, performs the authenticated MCP handshake, discovers all six tools and calls monitor health. It deliberately makes no device/MST request. After connecting AgenticOrg, `get_device_details` with the user's `serial_numbers` and `refresh=true` performs the actual live MST check.
+
+For continuous collection, supply the user's serials when starting the **separate worker**. For example in Bash on the deployment host:
+
+```sh
+read -r -p 'Device serials, separated by spaces: ' -a device_serials
+docker compose --env-file .env.docker run --detach --no-deps \
+  --name device-sre-worker worker poll --serial-numbers "${device_serials[@]}"
+docker logs --tail 20 device-sre-worker
+```
+
+This starts an immediate poll and repeats every 900 seconds. Empty/invalid serial input fails validation; no serial is hardcoded. To change the worker's serials, stop/remove **that named worker** and rerun the command with new user input. MCP requests always accept different serials without restarting the server. A platform schedule can perform collection instead; choose one collection path for the monitored devices. The worker mounts only the MST credential and shared observations/configuration.
+
+To expose the connector to AgenticOrg, use an existing approved HTTPS reverse proxy on this host. `deploy/nginx.location.conf` provides the `/mcp` location to include inside its configured TLS server. Supply your actual certificate/hostname through your infrastructure process, preserve Authorization/Host headers, restrict network access to the authorized runtime, and add that exact hostname to `SRE_ALLOWED_HOSTS` in `.env.docker`. Recreate the MCP container after changing environment settings:
+
+```sh
+docker compose --env-file .env.docker up --detach mcp
+sudo .venv/bin/python deploy/smoke_test.py \
+  --url 'https://YOUR_APPROVED_HOST/mcp' --token-file secrets/mcp/token
+```
+
+`YOUR_APPROVED_HOST` is a placeholder, not a deployed link. Register the verified HTTPS `/mcp` endpoint with AgenticOrg using only the dedicated MCP credential through its secret configuration. The MST credential stays on the Docker host.
+
+On each push to `main`, `.github/workflows/container.yml` runs the tests, builds the image, and verifies authenticated MCP discovery inside the container using synthetic credentials. Only after verification succeeds does it publish `ghcr.io/vnykumargoyal/deviceperformancesreagent:sha-<full-commit>` and `:latest` with the workflow's GitHub token. It never needs the real MST or MCP credentials. GitHub package/workflow policies may require owner configuration; publication does not start a server. The workflow builds Linux amd64 images; building from this Dockerfile on the target host also supports its native architecture when dependencies are available.
+
+For a Git-based update on the host, stop/remove a separately started named worker first, preserve configuration/secret files and the observations volume, then:
+
+```sh
+git pull --ff-only
+docker compose --env-file .env.docker up --detach --build mcp
+sudo .venv/bin/python deploy/smoke_test.py --token-file secrets/mcp/token
+```
+
+Rerun the parameterized worker command if using worker collection. `docker compose down` does not remove the named observations volume unless explicitly requested; avoid `down --volumes` when retaining history. Back up/restore the SQLite cache with a consistent database backup procedure, and keep that backup within the same authorization/retention scope.
+
 ## Verification
 
 ```sh

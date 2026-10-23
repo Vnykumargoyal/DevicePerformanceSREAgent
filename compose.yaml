@@ -1,0 +1,81 @@
+name: device-performance-sre
+
+x-runtime: &runtime
+  image: ${SRE_IMAGE:-device-performance-sre:local}
+  build:
+    context: .
+  init: true
+  read_only: true
+  user: "10001:10001"
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp:rw,nosuid,nodev,noexec,size=16m,mode=1777"]
+  pids_limit: 128
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "3"
+
+x-environment: &environment
+  MST_BASE_URL: ${MST_BASE_URL:-https://api.tms.uat.pinelabs.com}
+  MST_TOKEN_FILE: /run/secrets/mst/token
+  SRE_CONFIG: /app/monitor.json
+  SRE_DATA_DIR: /var/lib/device-sre
+
+x-data: &data
+  type: volume
+  source: observations
+  target: /var/lib/device-sre
+
+x-config: &config
+  type: bind
+  source: ${SRE_MONITOR_CONFIG:-./monitor.example.json}
+  target: /app/monitor.json
+  read_only: true
+  bind:
+    create_host_path: false
+
+# Mount directories so an atomic replacement of token remains visible.
+x-mst-token: &mst-token
+  type: bind
+  source: ${SRE_MST_SECRET_DIR:-./secrets/mst}
+  target: /run/secrets/mst
+  read_only: true
+  bind:
+    create_host_path: false
+
+services:
+  mcp:
+    <<: *runtime
+    environment:
+      <<: *environment
+      SRE_MCP_TOKEN_FILE: /run/secrets/mcp/token
+      SRE_HOST: 0.0.0.0
+      SRE_PORT: "8765"
+      SRE_ALLOWED_HOSTS: ${SRE_ALLOWED_HOSTS:-127.0.0.1:*,localhost:*}
+    ports:
+      - "${SRE_BIND_ADDRESS:-127.0.0.1}:${SRE_PUBLISHED_PORT:-8765}:8765"
+    volumes:
+      - *data
+      - *config
+      - *mst-token
+      - type: bind
+        source: ${SRE_MCP_SECRET_DIR:-./secrets/mcp}
+        target: /run/secrets/mcp
+        read_only: true
+        bind:
+          create_host_path: false
+
+  worker:
+    <<: *runtime
+    profiles: [worker]
+    command: [poll]
+    environment: *environment
+    healthcheck:
+      disable: true
+    volumes: [*data, *config, *mst-token]
+
+volumes:
+  observations:
