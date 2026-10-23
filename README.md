@@ -242,7 +242,7 @@ This is a test connector: [Render's Free service](https://render.com/docs/free) 
 
 1. Sign in to Render and deploy the Blueprint linked above. Review that the only resource is the Free web service. If connecting the GitHub app, grant access to this repository only.
 2. Through Render's secret environment settings, provide `MST_BEARER_TOKEN` with an approved MST access token and `SRE_MCP_BEARER_TOKEN` with a **new, separate random token of at least 32 characters**. Enter raw token values without `Bearer `. Keep both out of Git. Only use credentials and telemetry approved for processing on Render. These values are supplied at deploy time, never stored in the Blueprint or Docker image. Do not also set `MST_TOKEN_FILE` or `SRE_MCP_TOKEN_FILE` unless you actually provision corresponding readable secret files.
-3. Wait until Render reports the service is live. Copy the actual HTTPS URL from its dashboard; the requested name may receive a suffix. `/healthz` is a liveness endpoint; `/mcp` is the authenticated connector endpoint. Opening `/mcp` in a browser without its bearer returns 401 as expected.
+3. Wait until Render reports the service is live. Copy the actual HTTPS URL from its dashboard; the requested name may receive a suffix. Open the base URL in a browser to see the public connection page and copy the full MCP endpoint. `/healthz` is a liveness endpoint; `/mcp` is the authenticated connector endpoint. Opening `/mcp` in a browser without its bearer returns 401 as expected. The public page contains no credentials or device data and does not fetch metrics.
 4. Save the dedicated **Render MCP token** in an ignored local file with mode 0600. Test discovery without transmitting the MST credential from your laptop:
 
    ```sh

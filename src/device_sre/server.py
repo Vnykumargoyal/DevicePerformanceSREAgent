@@ -4,12 +4,13 @@ import os
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse
 
 from .settings import read_secret
 from .monitor import utc_now
 from .store import Store
 from .tools import Tools
+from .landing import HOME_HEADERS, HOME_HTML
 
 TOOL_NAMES = (
     "get_monitor_health", "list_monitored_devices", "get_device_details",
@@ -49,6 +50,8 @@ class BearerGuard:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
+        if scope["path"] == "/" and scope["method"] in ("GET", "HEAD"):
+            return await HTMLResponse(HOME_HTML, headers=HOME_HEADERS)(scope, receive, send)
         if scope["path"] == "/healthz":
             return await JSONResponse({"status": "alive"})(scope, receive, send)
         try:

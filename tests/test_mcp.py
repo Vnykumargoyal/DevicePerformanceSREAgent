@@ -60,6 +60,35 @@ def test_streamable_http_auth_and_jsonrpc(tmp_path, monkeypatch):
     asyncio.run(check())
 
 
+def test_browser_home_is_public_but_mcp_stays_protected(tmp_path, monkeypatch):
+    secret = "private-connector-token-" + "x" * 40
+    monkeypatch.setenv("SRE_MCP_BEARER_TOKEN", secret)
+    monkeypatch.delenv("SRE_MCP_TOKEN_FILE", raising=False)
+    server = create_server(Settings(data_dir=tmp_path))
+    app = BearerGuard(server.streamable_http_app())
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://localhost:8765") as client:
+            home = await client.get("/")
+            assert home.status_code == 200
+            assert home.headers["content-type"].startswith("text/html")
+            assert "Your connector" in home.text and "Streamable HTTP" in home.text
+            assert secret not in home.text
+            assert "data/render-connector-token" not in home.text
+            assert home.headers["cache-control"] == "no-store"
+            assert "default-src 'none'" in home.headers["content-security-policy"]
+            assert (await client.head("/")).status_code == 200
+            for method, path in (("POST", "/"), ("GET", "/mcp"), ("POST", "/mcp")):
+                denied = await client.request(method, path)
+                assert denied.status_code == 401
+                assert denied.headers["www-authenticate"] == "Bearer"
+            monkeypatch.delenv("SRE_MCP_BEARER_TOKEN")
+            assert (await client.get("/")).status_code == 200
+            assert (await client.post("/mcp", json={})).status_code == 503
+
+    asyncio.run(check())
+
+
 def test_missing_mst_credential_is_explained_without_sending_a_request(tmp_path, monkeypatch):
     monkeypatch.setenv("MST_TOKEN_FILE", str(tmp_path / "missing-token"))
     monkeypatch.delenv("MST_BEARER_TOKEN", raising=False)
