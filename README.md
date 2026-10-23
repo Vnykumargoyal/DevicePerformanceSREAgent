@@ -232,6 +232,30 @@ sudo .venv/bin/python deploy/smoke_test.py --token-file secrets/mcp/token
 
 Rerun the parameterized worker command if using worker collection. `docker compose down` does not remove the named observations volume unless explicitly requested; avoid `down --volumes` when retaining history. Back up/restore the SQLite cache with a consistent database backup procedure, and keep that backup within the same authorization/retention scope.
 
+## Free Render test deployment
+
+[Deploy the free test connector on Render](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2FVnykumargoyal%2FDevicePerformanceSREAgent)
+
+`render.yaml` creates one **Free Docker web service** from this GitHub repository, with HTTPS managed by Render. It creates no paid database, disk or worker. The application keeps bearer authentication and trusts only its assigned Render hostname, resolved by the Blueprint's service reference. Port `8765` is set explicitly in both Render and the application. GitHub's CI must pass before automatic redeploys.
+
+This is a test connector: [Render's Free service](https://render.com/docs/free) sleeps after 15 minutes without inbound requests and loses local files, including this SQLite cache, on sleep, restart or redeployment. There is no reliable background polling or durable history on this configuration. Each `get_device_details` request still fetches the supplied serial string/array through MST and compares against observations retained during the current running session. A first reading after cache loss establishes a fresh baseline. Use the persistent Docker deployment above for continuous monitoring.
+
+1. Sign in to Render and deploy the Blueprint linked above. Review that the only resource is the Free web service. If connecting the GitHub app, grant access to this repository only.
+2. Through Render's secret environment settings, provide `MST_BEARER_TOKEN` with an approved MST access token and `SRE_MCP_BEARER_TOKEN` with a **new, separate random token of at least 32 characters**. Enter raw token values without `Bearer `. Keep both out of Git. Only use credentials and telemetry approved for processing on Render. These values are supplied at deploy time, never stored in the Blueprint or Docker image. Do not also set `MST_TOKEN_FILE` or `SRE_MCP_TOKEN_FILE` unless you actually provision corresponding readable secret files.
+3. Wait until Render reports the service is live. Copy the actual HTTPS URL from its dashboard; the requested name may receive a suffix. `/healthz` is a liveness endpoint; `/mcp` is the authenticated connector endpoint. Opening `/mcp` in a browser without its bearer returns 401 as expected.
+4. Save the dedicated **Render MCP token** in an ignored local file with mode 0600. Test discovery without transmitting the MST credential from your laptop:
+
+   ```sh
+   .venv/bin/python deploy/smoke_test.py \
+     --url 'https://YOUR_ACTUAL_RENDER_HOST/mcp' \
+     --token-file data/render-connector-token
+   ```
+
+   This verifies authentication and six tools; it does not fetch metrics. Then test `get_device_details` from an authorized MCP client using a user-selected serial and `refresh=true`. Source data freshness, live fetch success and cache retention remain separate.
+5. If Render cannot reach the UAT MST gateway, have the service/network owner approve an appropriate connection or use the internal Docker host. Do not expose private analytics or bypass gateway/device authorization. Renew an expired MST credential through Render's secret settings. Never send the MST token to AgenticOrg; its connector uses only the dedicated MCP token and the verified HTTPS `/mcp` URL.
+
+Free instance hours and bandwidth/build limits still apply; review the dashboard before provisioning and keep the compute plan Free. No keep-alive traffic or paid upgrade is configured by this repository.
+
 ## Verification
 
 ```sh

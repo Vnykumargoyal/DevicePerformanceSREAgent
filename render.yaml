@@ -1,0 +1,36 @@
+# Free test deployment: local SQLite history is ephemeral on this plan.
+# No background worker or paid storage is created.
+services:
+  - type: web
+    name: device-performance-sre-mcp
+    runtime: docker
+    plan: free
+    region: singapore
+    repo: https://github.com/Vnykumargoyal/DevicePerformanceSREAgent
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PORT
+        value: "8765"
+      - key: SRE_PORT
+        value: "8765"
+      - key: SRE_HOST
+        value: 0.0.0.0
+      - key: SRE_CONFIG
+        value: /app/monitor.json
+      - key: SRE_DATA_DIR
+        value: /var/lib/device-sre
+      - key: MST_BASE_URL
+        value: https://api.tms.uat.pinelabs.com
+      - key: SRE_ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: device-performance-sre-mcp
+          envVarKey: RENDER_EXTERNAL_HOSTNAME
+      - key: MST_BEARER_TOKEN
+        sync: false
+      - key: SRE_MCP_BEARER_TOKEN
+        sync: false
